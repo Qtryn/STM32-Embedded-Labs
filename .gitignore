@@ -1,0 +1,26 @@
+# Build files
+build/
+**/build/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+.ninja*
+
+# STM32 generated files
+*.elf
+*.hex
+*.bin
+*.map
+
+# IDE
+.vscode/
+.idea/
+
+# Former nested repository metadata
+LAB_1/.git.backup/
+
+# Proteus local backups and workspace state
+*.pdsbak
+*.workspace
