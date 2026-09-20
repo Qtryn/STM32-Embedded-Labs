@@ -62,7 +62,7 @@ static void MX_GPIO_Init(void);
   * @retval int
   */
 
-void Display_Number(uint8_t num)
+void display7SEG(uint8_t num)
 {
     uint8_t seg[10][7]=
     {
@@ -123,7 +123,7 @@ int main(void)
   {
     for(uint8_t i = 0; i < 10; i++)
     {
-        Display_Number(i);
+        display7SEG(i);
 
         HAL_Delay(1000);
     }
