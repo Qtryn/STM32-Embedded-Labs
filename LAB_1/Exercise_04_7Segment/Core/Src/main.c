@@ -61,7 +61,6 @@ static void MX_GPIO_Init(void);
   * @brief  The application entry point.
   * @retval int
   */
-
 void display7SEG(uint8_t num)
 {
     uint8_t seg[10][7]=
@@ -77,7 +76,6 @@ void display7SEG(uint8_t num)
         {0,0,0,0,0,0,0}, //8
         {0,0,0,0,1,0,0}  //9
     };
-
 
     HAL_GPIO_WritePin(SEG_A_GPIO_Port,SEG_A_Pin,seg[num][0]);
     HAL_GPIO_WritePin(SEG_B_GPIO_Port,SEG_B_Pin,seg[num][1]);
@@ -131,6 +129,8 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+
+
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -180,10 +180,10 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SEG_A_Pin|SEG_B_Pin|SEG_C_Pin|SEG_D_Pin
+  HAL_GPIO_WritePin(GPIOB, SEG_A_Pin|SEG_B_Pin|SEG_C_Pin|SEG_D_Pin
                           |SEG_E_Pin|SEG_F_Pin|SEG_G_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : SEG_A_Pin SEG_B_Pin SEG_C_Pin SEG_D_Pin
@@ -193,7 +193,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
