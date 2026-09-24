@@ -237,7 +237,7 @@ int main(void)
 
       NS_Green();
 
-      for(int i = 3; i >= 1; i--)
+      for(int i = 3; i >= 0; i--)
       {
           Display_Number(i);
           HAL_Delay(1000);
@@ -251,7 +251,7 @@ int main(void)
 
       NS_Yellow();
 
-      for(int i = 2; i >= 1; i--)
+      for(int i = 2; i >= 0; i--)
       {
           Display_Number(i);
           HAL_Delay(1000);
@@ -260,14 +260,14 @@ int main(void)
 
 
       // =====================
-      // NS RED - 5 seconds
+      // NS RED - 7 seconds
       // EW GREEN/YELLOW
       // =====================
 
       // EW green phase (NS red)
       EW_Green();
 
-      for(int i = 5; i >= 3; i--)
+      for(int i = 6; i >= 3; i--)
       {
           Display_Number(i);
           HAL_Delay(1000);
@@ -277,7 +277,7 @@ int main(void)
       // EW yellow phase (NS red)
       EW_Yellow();
 
-      for(int i = 2; i >= 1; i--)
+      for(int i = 2; i >= 0; i--)
       {
           Display_Number(i);
           HAL_Delay(1000);
