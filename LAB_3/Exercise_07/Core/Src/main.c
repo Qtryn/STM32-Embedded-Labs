@@ -7,7 +7,7 @@
 
 TIM_HandleTypeDef htim2;
 
-#define SCAN_MS        2U
+#define SCAN_MS        10U
 #define BLINK_HALF_MS 250U
 #define CONFIRM_MS    500U
 
