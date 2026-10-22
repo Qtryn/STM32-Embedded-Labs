@@ -25,7 +25,7 @@ static void all_digits_off(void)
 static void set_segments(uint8_t digit)
 {
     /* Common anode: LOW = ON */
-    static const uint8_t seg[10][7] = {
+    static const uint8_t seg[11][7] = {
         {0,0,0,0,0,0,1}, /* 0 */
         {1,0,0,1,1,1,1}, /* 1 */
         {0,0,1,0,0,1,0}, /* 2 */
@@ -35,10 +35,11 @@ static void set_segments(uint8_t digit)
         {0,1,0,0,0,0,0}, /* 6 */
         {0,0,0,1,1,1,1}, /* 7 */
         {0,0,0,0,0,0,0}, /* 8 */
-        {0,0,0,0,1,0,0}  /* 9 */
+        {0,0,0,0,1,0,0}, /* 9 */
+        {0,1,1,0,0,0,0}  /* E */
     };
 
-    if (digit > 9U) {
+    if (digit > 10U) {
         digit = 0U;
     }
 
@@ -89,6 +90,15 @@ void display_show_values(uint8_t left, uint8_t right)
 
     digits[2] = right / 10U;
     digits[3] = right % 10U;
+}
+
+/* Display EEEE to indicate an invalid timing configuration. */
+void display_show_error(void)
+{
+    digits[0] = 10U;
+    digits[1] = 10U;
+    digits[2] = 10U;
+    digits[3] = 10U;
 }
 
 void display_init(void)

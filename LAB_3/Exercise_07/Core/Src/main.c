@@ -10,19 +10,18 @@ TIM_HandleTypeDef htim2;
 #define SCAN_MS        10U
 #define BLINK_HALF_MS 250U
 #define CONFIRM_MS    500U
+#define INVALID_MS   1500U
 
 /*
  * TRAFFIC PHASES
  *
  * 0 = NS GREEN,  EW RED
  * 1 = NS YELLOW, EW RED
- * 2 = BOTH RED (gap1)
- * 3 = NS RED,    EW GREEN
- * 4 = NS RED,    EW YELLOW
- * 5 = BOTH RED (gap2)
+ * 2 = NS RED,    EW GREEN
+ * 3 = NS RED,    EW YELLOW
  */
 
-static uint8_t traffic_phase = 5U;
+static uint8_t traffic_phase = 0U;
 static uint32_t traffic_start_ms = 0U;
 
 void SystemClock_Config(void);
@@ -67,235 +66,74 @@ static void traffic_set_normal(uint8_t phase)
     traffic_all_off();
 
     switch (phase) {
-        case 0:
-            /* NS GREEN, EW RED */
-            HAL_GPIO_WritePin(
-                GREEN_NS_GPIO_Port, GREEN_NS_Pin,
-                GPIO_PIN_RESET
-            );
-
-            HAL_GPIO_WritePin(
-                RED_EW_GPIO_Port, RED_EW_Pin,
-                GPIO_PIN_RESET
-            );
+        case 0: /* NS green, EW red */
+            HAL_GPIO_WritePin(GREEN_NS_GPIO_Port, GREEN_NS_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(RED_EW_GPIO_Port, RED_EW_Pin, GPIO_PIN_RESET);
             break;
-
-        case 1:
-            /* NS YELLOW, EW RED */
-            HAL_GPIO_WritePin(
-                YELLOW_NS_GPIO_Port, YELLOW_NS_Pin,
-                GPIO_PIN_RESET
-            );
-
-            HAL_GPIO_WritePin(
-                RED_EW_GPIO_Port, RED_EW_Pin,
-                GPIO_PIN_RESET
-            );
+        case 1: /* NS amber, EW red */
+            HAL_GPIO_WritePin(YELLOW_NS_GPIO_Port, YELLOW_NS_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(RED_EW_GPIO_Port, RED_EW_Pin, GPIO_PIN_RESET);
             break;
-
-        case 2:
-        case 5:
-            /* Both directions RED */
-            HAL_GPIO_WritePin(
-                RED_NS_GPIO_Port, RED_NS_Pin,
-                GPIO_PIN_RESET
-            );
-
-            HAL_GPIO_WritePin(
-                RED_EW_GPIO_Port, RED_EW_Pin,
-                GPIO_PIN_RESET
-            );
+        case 2: /* NS red, EW green */
+            HAL_GPIO_WritePin(RED_NS_GPIO_Port, RED_NS_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GREEN_EW_GPIO_Port, GREEN_EW_Pin, GPIO_PIN_RESET);
             break;
-
-        case 3:
-            /* NS RED, EW GREEN */
-            HAL_GPIO_WritePin(
-                RED_NS_GPIO_Port, RED_NS_Pin,
-                GPIO_PIN_RESET
-            );
-
-            HAL_GPIO_WritePin(
-                GREEN_EW_GPIO_Port, GREEN_EW_Pin,
-                GPIO_PIN_RESET
-            );
+        case 3: /* NS red, EW amber */
+            HAL_GPIO_WritePin(RED_NS_GPIO_Port, RED_NS_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(YELLOW_EW_GPIO_Port, YELLOW_EW_Pin, GPIO_PIN_RESET);
             break;
-
-        case 4:
-            /* NS RED, EW YELLOW */
-            HAL_GPIO_WritePin(
-                RED_NS_GPIO_Port, RED_NS_Pin,
-                GPIO_PIN_RESET
-            );
-
-            HAL_GPIO_WritePin(
-                YELLOW_EW_GPIO_Port, YELLOW_EW_Pin,
-                GPIO_PIN_RESET
-            );
-            break;
-
         default:
             break;
     }
 }
 
-/* =========================================================
-   CALCULATE TRAFFIC DURATIONS
-
-   Red duration must be >= Green + Yellow.
-
-   If configured RED is larger, add two
-   both-red clearance intervals.
-
-   Effective RED = max(RED, GREEN + YELLOW)
-   ========================================================= */
-
-static void traffic_durations(
-    uint8_t *g,
-    uint8_t *y,
-    uint16_t *gap1,
-    uint16_t *gap2
-)
+/* Saved configuration is guaranteed to satisfy RED = GREEN + AMBER. */
+static uint32_t phase_duration_ms(uint8_t phase)
 {
-    uint16_t r = getRedTime();
-
-    *g = getGreenTime();
-    *y = getAmberTime();
-
-    uint16_t sum = (uint16_t)(*g + *y);
-
-    uint16_t extra =
-        (r > sum) ? (uint16_t)(r - sum) : 0U;
-
-    *gap1 = extra / 2U;
-    *gap2 = extra - *gap1;
+    return (uint32_t)((phase == 0U || phase == 2U)
+           ? getGreenTime() : getAmberTime()) * 1000U;
 }
-
-/* Get duration of one phase, in milliseconds */
-static uint32_t phase_duration_ms(
-    uint8_t phase,
-    uint8_t g,
-    uint8_t y,
-    uint16_t gap1,
-    uint16_t gap2
-)
-{
-    switch (phase) {
-        case 0:
-        case 3:
-            return (uint32_t)g * 1000U;
-
-        case 1:
-        case 4:
-            return (uint32_t)y * 1000U;
-
-        case 2:
-            return (uint32_t)gap1 * 1000U;
-
-        case 5:
-            return (uint32_t)gap2 * 1000U;
-
-        default:
-            return 1000U;
-    }
-}
-
-/* Four 7-segment digits can display at most 99 per road */
-static uint8_t limit_digit_pair(uint32_t n)
-{
-    return (n > 99U) ? 99U : (uint8_t)n;
-}
-
-/* =========================================================
-   MODE 1 - NORMAL TRAFFIC FSM
-
-   Runs without HAL_Delay.
-   ========================================================= */
 
 static void normal_mode_update(uint32_t now)
 {
-    uint8_t green, yellow;
-    uint16_t gap1, gap2;
+    uint32_t duration = phase_duration_ms(traffic_phase);
 
-    traffic_durations(
-        &green, &yellow, &gap1, &gap2
-    );
-
-    uint32_t duration = phase_duration_ms(
-        traffic_phase, green, yellow, gap1, gap2
-    );
-
-    /*
-     * Advance when the current phase expires.
-     * Zero-duration clearance phases are skipped.
-     */
-    while (duration == 0U ||
-           (uint32_t)(now - traffic_start_ms) >= duration) {
-
+    while ((uint32_t)(now - traffic_start_ms) >= duration) {
         traffic_start_ms += duration;
-
-        traffic_phase =
-            (uint8_t)((traffic_phase + 1U) % 6U);
-
+        traffic_phase = (uint8_t)((traffic_phase + 1U) % 4U);
         traffic_set_normal(traffic_phase);
-
-        duration = phase_duration_ms(
-            traffic_phase, green, yellow, gap1, gap2
-        );
+        duration = phase_duration_ms(traffic_phase);
     }
 
-    /* Remaining seconds in current phase */
     uint32_t remaining =
-        (duration -
-        (uint32_t)(now - traffic_start_ms) + 999U)
-        / 1000U;
+        (duration - (uint32_t)(now - traffic_start_ms) + 999U) / 1000U;
 
-    uint32_t ns = 0U;
     uint32_t ew = 0U;
+    uint32_t ns = 0U;
+    uint32_t yellow = getAmberTime();
 
-    /*
-     * Show countdown for the CURRENT color
-     * of each direction.
-     */
     switch (traffic_phase) {
-        case 0:
+        case 0: /* EW red, NS green */
+            ew = remaining + yellow;
             ns = remaining;
-            ew = remaining + yellow + gap1;
             break;
-
-        case 1:
+        case 1: /* EW red, NS amber */
+            ew = remaining;
             ns = remaining;
-            ew = remaining + gap1;
             break;
-
-        case 2:
-            ns = remaining + green + yellow + gap2;
+        case 2: /* EW green, NS red */
             ew = remaining;
+            ns = remaining + yellow;
             break;
-
-        case 3:
-            ns = remaining + yellow + gap2;
+        case 3: /* EW amber, NS red */
             ew = remaining;
-            break;
-
-        case 4:
-            ns = remaining + gap2;
-            ew = remaining;
-            break;
-
-        case 5:
             ns = remaining;
-            ew = remaining + green + yellow + gap1;
             break;
-
         default:
             break;
     }
 
-    /* First two digits = EW, last two digits = NS */
-    display_show_values(
-        limit_digit_pair(ew),
-        limit_digit_pair(ns)
-    );
+    display_show_values((uint8_t)ew, (uint8_t)ns);
 }
 
 /* =========================================================
@@ -374,12 +212,15 @@ int main(void)
     uint32_t last_scan_ms = now;
     uint32_t mode_start_ms = now;
     uint32_t saved_at_ms = now;
+    uint32_t invalid_at_ms = now;
 
     uint32_t last_blink_half = UINT32_MAX;
 
     uint8_t previous_mode = 0U;
     uint8_t last_save_sequence = getSaveSequence();
+    uint8_t last_invalid_sequence = getInvalidSequence();
     uint8_t confirm_save = 0U;
+    uint8_t show_invalid = 0U;
 
     traffic_all_off();
 
@@ -406,16 +247,18 @@ int main(void)
             traffic_all_off();
 
             if (mode == MODE_1_NORMAL) {
-                /*
-                 * Start with the last both-red phase.
-                 * If its duration is zero, it is
-                 * skipped immediately.
-                 */
-                traffic_phase = 5U;
+                traffic_phase = 0U;
                 traffic_start_ms = now;
-
                 traffic_set_normal(traffic_phase);
             }
+        }
+
+        /* Detect failed validation (Mode 4 -> Mode 1). */
+        uint8_t invalid_seq = getInvalidSequence();
+        if (invalid_seq != last_invalid_sequence) {
+            last_invalid_sequence = invalid_seq;
+            invalid_at_ms = now;
+            show_invalid = 1U;
         }
 
         /* 3. Detect successful BT3 save */
@@ -429,7 +272,16 @@ int main(void)
 
         /* 4. Normal mode */
         if (mode == MODE_1_NORMAL) {
+            /* Traffic keeps running with OLD committed settings even on error. */
             normal_mode_update(now);
+
+            if (show_invalid != 0U) {
+                if ((uint32_t)(now - invalid_at_ms) < INVALID_MS) {
+                    display_show_error();
+                } else {
+                    show_invalid = 0U;
+                }
+            }
         }
         else {
             /* 5. Modification mode display */
@@ -438,7 +290,7 @@ int main(void)
 
                 /*
                  * Example:
-                 * Saved value = 08 -> 0888
+                 * STAGED value = 08 -> 0888
                  */
                 display_show_values(
                     getSavedTimeForMode(mode),
