@@ -171,10 +171,12 @@ int main(void)
       Error_Handler();
   }
 #endif
+#if LAB5_MODE == LAB5_MODE_PROTOCOL
   if (HAL_ADC_Start(&hadc1) != HAL_OK)
   {
       Error_Handler();
   }
+#endif
 #endif
 
   if (HAL_UART_Receive_IT(&huart2, &uart_rx_byte, 1) != HAL_OK)
@@ -217,12 +219,23 @@ int main(void)
         led_tick = HAL_GetTick();
         HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
 #if LAB5_MODE == LAB5_MODE_ADC
-        if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+        if (HAL_ADC_Start(&hadc1) == HAL_OK)
         {
-            char text[16];
-            int length = snprintf(text, sizeof(text), "%lu\r\n",
-                                  (unsigned long)HAL_ADC_GetValue(&hadc1));
-            HAL_UART_Transmit(&huart2, (const uint8_t *)text, (uint16_t)length, 100);
+            HAL_StatusTypeDef status = HAL_ADC_PollForConversion(&hadc1, 10);
+            uint32_t value = 0;
+
+            if (status == HAL_OK)
+            {
+                value = HAL_ADC_GetValue(&hadc1);
+            }
+            HAL_ADC_Stop(&hadc1);
+
+            if (status == HAL_OK)
+            {
+                char text[16];
+                int length = snprintf(text, sizeof(text), "%lu\r\n", (unsigned long)value);
+                HAL_UART_Transmit(&huart2, (const uint8_t *)text, (uint16_t)length, 100);
+            }
         }
 #endif
     }

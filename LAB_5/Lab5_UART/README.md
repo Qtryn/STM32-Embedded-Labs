@@ -131,9 +131,14 @@ previously confirmed by the user in this session; this is not a claim that the
 new selectable mode has already been simulated.
 
 For Section 5 load `build/adc/Lab5_UART.hex`, vary RV1, and check readings change
-within 0-4095 every half second. Continuous conversions start before readings;
-hardware builds also perform calibration, while the Proteus profile bypasses it
-as explained above. Restore `build/Lab5_UART.hex` for the final demonstration.
+within 0-4095 every half second. Mode 2 starts ADC acquisition at each 500 ms
+interval, polls for completion, reads the value, and stops ADC before transmitting.
+Continuous mode remains enabled in CubeMX, but acquisition is stopped between
+these intervals. Only successful conversions are printed. Mode 0 still uses
+continuous conversion and keeps the saved response unchanged while awaiting ACK.
+Hardware builds also perform calibration, while the Proteus profile bypasses it
+as explained above. Restore a mode-0 build for the final demonstration; setting
+mode 2 in the root `build` cache also changes `build/Lab5_UART.hex` to mode 2.
 
 ## Tests
 
@@ -159,6 +164,7 @@ Validation performed for this implementation:
 | Protocol firmware in Proteus, calibration disabled | User confirmed LED blinking and ADC responses |
 | Potentiometer changed while waiting for ACK | User confirmed retries keep the old reading |
 | ACK, followed by a new RST after changing the potentiometer | User confirmed retries stop and the next request returns a new reading |
+| Mode 2 ADC stream | After the Start/Poll/Get/Stop change, the user confirmed readings change with the potentiometer in Proteus |
 
 Host tests do not emulate ADC voltages, UART electrical signals, interrupts,
 or the Proteus model. Simulated 10-minute test time is not a physical endurance run.
@@ -189,7 +195,8 @@ or the Proteus model. Simulated 10-minute test time is not a physical endurance 
     ACK stopping retries; a new request acquiring the changed reading.
 
 The core protocol observations above were reported by the user during the real
-Proteus run, not observed through automated tests. New intermediate-mode builds,
+Proteus run, not observed through automated tests. Mode 2 voltage response was
+also confirmed by the user after the acquisition change. Selectable loopback mode,
 invalid-input behavior in Proteus, exact retry timing measurement, and a physical
 several-minute endurance run still need demonstration screenshots. Do not treat
 a clean build or mocked HAL tests as simulation proof.
