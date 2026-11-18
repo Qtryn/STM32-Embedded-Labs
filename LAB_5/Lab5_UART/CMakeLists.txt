@@ -1,0 +1,142 @@
+cmake_minimum_required(VERSION 3.22)
+
+project(Lab5_UART C ASM)
+
+set(LAB5_MODE "0" CACHE STRING "Lab stage: 0=protocol, 1=loopback, 2=ADC")
+option(LAB5_ADC_CALIBRATION "Run ADC hardware self-calibration before conversion" ON)
+if(NOT LAB5_MODE MATCHES "^[012]$")
+    message(FATAL_ERROR "LAB5_MODE must be 0, 1, or 2")
+endif()
+
+
+# =========================
+# MCU Configuration
+# =========================
+
+set(MCU cortex-m3)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+
+# =========================
+# Compiler options
+# =========================
+
+add_compile_options(
+    -mcpu=${MCU}
+    -mthumb
+    -Og
+    -g3
+    -Wall
+    -ffunction-sections
+    -fdata-sections
+)
+
+
+add_compile_definitions(
+    LAB5_MODE=${LAB5_MODE}
+    LAB5_ADC_CALIBRATION=$<BOOL:${LAB5_ADC_CALIBRATION}>
+    USE_HAL_DRIVER
+    STM32F103x6
+)
+
+
+# =========================
+# Include directories
+# =========================
+
+include_directories(
+
+    Core/Inc
+
+    Drivers/CMSIS/Include
+
+    Drivers/CMSIS/Device/ST/STM32F1xx/Include
+
+    Drivers/STM32F1xx_HAL_Driver/Inc
+
+    Drivers/STM32F1xx_HAL_Driver/Inc/Legacy
+)
+
+
+# =========================
+# Source files
+# =========================
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
+
+    Core/Src/*.c
+
+    Drivers/STM32F1xx_HAL_Driver/Src/*.c
+
+)
+
+
+# =========================
+# Executable
+# =========================
+
+add_executable(
+    ${PROJECT_NAME}.elf
+
+    ${SOURCES}
+
+    startup_stm32f103x6.s
+)
+
+
+# =========================
+# Linker
+# =========================
+
+target_link_options(
+    ${PROJECT_NAME}.elf
+
+    PRIVATE
+
+    -mcpu=${MCU}
+
+    -mthumb
+
+    "-T${CMAKE_CURRENT_SOURCE_DIR}/STM32F103xx_FLASH.ld"
+
+    --specs=nano.specs
+
+    -Wl,--gc-sections
+
+    -Wl,-Map=${PROJECT_NAME}.map
+)
+
+
+# =========================
+# Generate HEX + BIN
+# =========================
+
+add_custom_command(
+
+    TARGET ${PROJECT_NAME}.elf
+
+    POST_BUILD
+
+    COMMAND ${CMAKE_OBJCOPY}
+
+    -O ihex
+
+    $<TARGET_FILE:${PROJECT_NAME}.elf>
+
+    ${PROJECT_NAME}.hex
+
+
+    COMMAND ${CMAKE_OBJCOPY}
+
+    -O binary
+
+    $<TARGET_FILE:${PROJECT_NAME}.elf>
+
+    ${PROJECT_NAME}.bin
+
+
+    COMMENT "Generating HEX and BIN files"
+
+)
