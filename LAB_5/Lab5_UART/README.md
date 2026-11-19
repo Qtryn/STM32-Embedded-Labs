@@ -126,7 +126,8 @@ If Ninja is installed but absent from PATH, add
 `"-DCMAKE_MAKE_PROGRAM=<absolute path to ninja.exe>"` to the configure command.
 
 For Section 4 load `build/loopback/Lab5_UART.hex`, type `ABC123`, and check one
-immediate echo per character while the LED blinks. Loopback with LED blinking was
+immediate echo per character while the LED blinks. Disable `Echo Typed Characters`
+for this test so displayed characters come only from the MCU. Loopback with LED blinking was
 previously confirmed by the user in this session; this is not a claim that the
 new selectable mode has already been simulated.
 
@@ -139,6 +140,19 @@ continuous conversion and keeps the saved response unchanged while awaiting ACK.
 Hardware builds also perform calibration, while the Proteus profile bypasses it
 as explained above. Restore a mode-0 build for the final demonstration; setting
 mode 2 in the root `build` cache also changes `build/Lab5_UART.hex` to mode 2.
+
+### Recurrent zero readings after a simulator failure
+
+During a later mode-2 run the user confirmed a changing voltage at PA0 while the
+terminal printed zeros. The Proteus log contained `Internal Exception: access
+violation in module 'CM3_STM32.DLL' [0000FDE1]`. Proteus 8.10 was installed.
+Temporary EOC-reading experiments were removed and the mode-2 source was restored
+to commit `6996d68`. After saving the circuit, stopping simulation, closing Proteus
+completely, reopening it, and loading `build/adc/Lab5_UART.hex`, the user confirmed
+that ADC readings changed normally and the DLL error was absent. The rebuilt
+binary matched the earlier known-working firmware. The precise internal DLL
+fault trigger was not determined. The separate excessive-CPU-load warning alone
+does not establish the cause of an ADC reading error.
 
 ## Tests
 
@@ -164,7 +178,7 @@ Validation performed for this implementation:
 | Protocol firmware in Proteus, calibration disabled | User confirmed LED blinking and ADC responses |
 | Potentiometer changed while waiting for ACK | User confirmed retries keep the old reading |
 | ACK, followed by a new RST after changing the potentiometer | User confirmed retries stop and the next request returns a new reading |
-| Mode 2 ADC stream | After the Start/Poll/Get/Stop change, the user confirmed readings change with the potentiometer in Proteus |
+| Mode 2 ADC stream | User confirmed changing readings; after a later CM3_STM32.DLL failure, the same restored firmware worked again following a complete Proteus restart |
 
 Host tests do not emulate ADC voltages, UART electrical signals, interrupts,
 or the Proteus model. Simulated 10-minute test time is not a physical endurance run.
@@ -173,13 +187,16 @@ or the Proteus model. Simulated 10-minute test time is not a physical endurance 
 
 1. Stop simulation. Set STM32 Program File to the absolute path of
    `LAB_5/Lab5_UART/build/Lab5_UART.hex`. Do not use the copied LAB_4 HEX path.
-   The saved `Schematic.pdsprj` still contains `..\build\Lab4_Scheduler.hex`;
-   select the new file and save the project so reopening retains the correction.
+   Check the path after reopening and save the project after changing it. The
+   root HEX follows the mode currently selected in its CMake cache; the separate
+   `build/adc/Lab5_UART.hex` is the mode-2 firmware.
 2. Confirm PA2 -> terminal RXD, terminal TXD -> PA3, PA0 -> follower output,
    3.3 V VDDA supply, 1 kOhm potentiometer, 10 kOhm feedback, and PA5 LED.
 3. Set Virtual Terminal to 9600 baud, 8 data bits, no parity, 1 stop bit,
-   normal polarity. Disable `Echo Typed Characters` in its context menu.
-   Local echo is a terminal setting; MCU source cannot disable it.
+   normal polarity. Enable `Echo Typed Characters` in its context menu if you
+   want `!RST#` and `!OK#` to appear immediately as you type. This local display
+   is separate from MCU responses; the firmware still sends only protocol packets.
+   Local echo is a terminal setting, not an STM32 source-code setting.
 4. Run and click the black terminal area. The final firmware is silent at boot.
 5. Type `!RST#` without Enter. Expect exactly one `!ADC=<value>#` packet.
 6. Do not ACK. After 3 seconds expect the identical packet again.
@@ -195,8 +212,8 @@ or the Proteus model. Simulated 10-minute test time is not a physical endurance 
     ACK stopping retries; a new request acquiring the changed reading.
 
 The core protocol observations above were reported by the user during the real
-Proteus run, not observed through automated tests. Mode 2 voltage response was
-also confirmed by the user after the acquisition change. Selectable loopback mode,
+Proteus run, not observed through automated tests. Mode 2 was also confirmed by
+the user after a full Proteus restart using the restored firmware. Selectable loopback mode,
 invalid-input behavior in Proteus, exact retry timing measurement, and a physical
 several-minute endurance run still need demonstration screenshots. Do not treat
 a clean build or mocked HAL tests as simulation proof.
